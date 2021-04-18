@@ -122,13 +122,14 @@ const HomePage = () => {
   }, []);
 
   useEffect(() => {
-    getNewStories(
-      storyIds.slice(chunkFactor * chunkSize, (chunkFactor + 1) * chunkSize)
-    ).then((data) => {
-      setIsLoading(false);
-      setStories([...stories, ...data]);
-      setIsLoadingLazily(false);
-    });
+    if(chunkFactor > 0) {
+      getNewStories(
+        storyIds.slice(chunkFactor * chunkSize, (chunkFactor + 1) * chunkSize)
+      ).then((data) => {
+        setStories([...stories, ...data]);
+        setIsLoadingLazily(false);
+      });
+    }
   }, [chunkFactor]);
 
   useEffect(() => {
@@ -142,7 +143,7 @@ const HomePage = () => {
     return () => window.removeEventListener('scroll', handleScrollChange);
   }, [handleScrollChange]);
 
-  useInterval(checkNewStories, 10000);
+  useInterval(checkNewStories, 20000);
 
   return (
     <div>

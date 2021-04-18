@@ -1,6 +1,5 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {
-  Container,
   CssBaseline,
   Snackbar,
   Button,
@@ -13,29 +12,73 @@ import PageLoading from "../components/PageLoading";
 import useInterval from "../hooks/useInterval";
 import LazyLoading from "../components/LazyLoading";
 
-const bulkSize = 20;
+const chunkSize = 20;
 
 const HomePage = () => {
   const [storyIds, setStoryIds] = useState([]);
-  const [newStoryIds, setNewStoryIds] = useState([]);
+  const [comingStoryIds, setComingStoryIds] = useState([]);
   const [stories, setStories] = useState([]);
-  const [bulkFactor, setBulkFactor] = useState(0);
+  const [chunkFactor, setChunkFactor] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingLazily, setIsLoadingLazily] = useState(false);
   const [shouldRecommendNews, setShouldRecommendNews] = useState(false);
 
   const initialize = async () => {
     const ids = await getStoryIds();
-    const stories = await getNewStories(ids.slice(bulkFactor * bulkSize, (bulkFactor + 1) * bulkSize));
+    const stories = await getNewStories(ids.slice(chunkFactor * chunkSize, (chunkFactor + 1) * chunkSize));
 
     setStories(stories);
     setStoryIds(ids);
     setIsLoading(false);
   };
 
+
+  const updateStories = async () => {
+    handleCloseSnackBar();
+    setStoryIds([...comingStoryIds, ...storyIds].slice(0, 499)); // Keep news maximum size to 500.
+
+    const newStoriesFromAPI = await getNewStories(comingStoryIds);
+    const newStories = [];
+
+    // Add news stories after the favorites.
+    stories.some((s, i) => {
+      if (s.isFavorite) {
+        newStories.push(s);
+        return false;
+      }
+
+      newStories.push(...newStoriesFromAPI);
+      newStories.push(...stories.slice(i, stories.length));
+
+      return true;
+    });
+
+    setComingStoryIds([]); // Clear fetched ids: reset container.
+    setStories(newStories);
+  }
+
+  const checkNewStories = async () => {
+    const latestIds = await getStoryIds();
+    const ids = [];
+
+    // Check if there is a new story id in latest fetched ids.
+    latestIds.some((id) => {
+      if (storyIds.includes(id))
+        return true;
+
+      ids.push(id);
+      return false;
+    });
+
+    if (ids.length > comingStoryIds.length) {
+      setComingStoryIds(ids);
+    }
+  };
+
   const handleHeartClick = (story) => {
     const favorites = [];
     const otherSTories = [];
+
     stories.forEach((s) => {
       if (s.id === story.id) {
         s.isFavorite = !s.isFavorite;
@@ -54,52 +97,11 @@ const HomePage = () => {
     setStories([...favorites, ...otherSTories]);
   };
 
-  const recommendNewsUpdate = () => setShouldRecommendNews(true);
+  const handleOpenSnackBar = () => setShouldRecommendNews(true);
 
   const handleCloseSnackBar = () => setShouldRecommendNews(false);
 
-  const updateStories = async () => {
-    handleCloseSnackBar();
-    setStoryIds([...newStoryIds, ...storyIds].slice(0, 499));
-    setNewStoryIds([]);
-    const newStoriesFromAPI = await getNewStories(newStoryIds);
-
-    const newStories = [];
-    stories.some((s, i) => {
-      if (s.isFavorite) {
-        newStories.push(s);
-
-        return false;
-      }
-
-      newStories.push(...newStoriesFromAPI);
-      newStories.push(...stories.slice(i, stories.length));
-
-      return true;
-    });
-
-    setStories(newStories);
-  }
-
-  const checkNewStories = async () => {
-    const latestIds = await getStoryIds();
-    const ids = [];
-
-    latestIds.some((id) => {
-      if (storyIds.includes(id))
-        return true;
-
-      ids.push(id);
-      return false;
-    });
-
-    if (ids.length > newStoryIds.length) {
-      setNewStoryIds(ids);
-    }
-
-  };
-
-  const handleScroll = useCallback(() => {
+  const handleScrollChange = useCallback(() => {
     if (isLoadingLazily) return;
 
     const scrollTop = (document.documentElement
@@ -109,35 +111,36 @@ const HomePage = () => {
       && document.documentElement.scrollHeight)
       || document.body.scrollHeight;
 
-
-    if ((scrollTop + window.innerHeight + 1000 >= scrollHeight) && (bulkFactor < 24)) {
+    if ((scrollTop + window.innerHeight + 1000 >= scrollHeight) && (chunkFactor < 24)) {
       setIsLoadingLazily(true);
-      setBulkFactor(bulkFactor + 1);
+      setChunkFactor(chunkFactor + 1);
     }
-  }, [isLoadingLazily])
+  }, [isLoadingLazily, chunkFactor])
 
-  useEffect(() => initialize(), []);
+  useEffect(() => {
+    initialize()
+  }, []);
 
   useEffect(() => {
     getNewStories(
-      storyIds.slice(bulkFactor * bulkSize, (bulkFactor + 1) * bulkSize)
+      storyIds.slice(chunkFactor * chunkSize, (chunkFactor + 1) * chunkSize)
     ).then((data) => {
       setIsLoading(false);
       setStories([...stories, ...data]);
       setIsLoadingLazily(false);
     });
-  }, [bulkFactor]);
+  }, [chunkFactor]);
 
   useEffect(() => {
-    if (newStoryIds.length > 0) {
-      recommendNewsUpdate();
+    if (comingStoryIds.length > 0) {
+      handleOpenSnackBar();
     }
-  }, [newStoryIds]);
+  }, [comingStoryIds]);
 
   useEffect(() => {
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
+    window.addEventListener('scroll', handleScrollChange);
+    return () => window.removeEventListener('scroll', handleScrollChange);
+  }, [handleScrollChange]);
 
   useInterval(checkNewStories, 10000);
 
@@ -155,7 +158,7 @@ const HomePage = () => {
           />
         ))
       )}
-      {isLoadingLazily ? <LazyLoading/> : (bulkFactor === 24 ? <p>End</p> : undefined)}
+      {isLoadingLazily ? <LazyLoading/> : (chunkFactor === 24 ? <p>End</p> : undefined)}
 
       <Snackbar
         anchorOrigin={{
@@ -163,7 +166,7 @@ const HomePage = () => {
           horizontal: "center",
         }}
         open={shouldRecommendNews}
-        message={`New news (${newStoryIds.length})`}
+        message={`New news (${comingStoryIds.length})`}
         action={
           <React.Fragment>
             <Button color="secondary" size="small" onClick={updateStories}>

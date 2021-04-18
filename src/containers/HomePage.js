@@ -144,46 +144,42 @@ const HomePage = () => {
   return (
     <div>
       <CssBaseline/>
-      <Container maxWidth="lg">
-        {isLoading ? (
-          <PageLoading/>
-        ) : (
-          stories.map((s, i) => (
-            <Story
-              story={s}
-              onHeartClick={handleHeartClick}
-              key={s.author + i}
-            />
-          ))
-        )}
-        {isLoadingLazily ? <LazyLoading/> : (bulkFactor === 24 ? <p>End</p> : undefined)}
+      {isLoading ? (
+        <PageLoading/>
+      ) : (
+        stories.map((s, i) => (
+          <Story
+            story={s}
+            onHeartClick={handleHeartClick}
+            key={s.author + i}
+          />
+        ))
+      )}
+      {isLoadingLazily ? <LazyLoading/> : (bulkFactor === 24 ? <p>End</p> : undefined)}
 
-        <Snackbar
-          anchorOrigin={{
-            vertical: "bottom",
-            horizontal: "center",
-          }}
-          open={shouldRecommendNews}
-          autoHideDuration={5000}
-          onClose={handleCloseSnackBar}
-          message={`New news (${newStoryIds.length})`}
-          action={
-            <React.Fragment>
-              <Button color="secondary" size="small" onClick={updateStories}>
-                SHOW
-              </Button>
-              <IconButton
-                size="small"
-                aria-label="close"
-                color="inherit"
-                onClick={handleCloseSnackBar}
-              >
-                <CloseIcon fontSize="small"/>
-              </IconButton>
-            </React.Fragment>
-          }
-        />
-      </Container>
+      <Snackbar
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "center",
+        }}
+        open={shouldRecommendNews}
+        message={`New news (${newStoryIds.length})`}
+        action={
+          <React.Fragment>
+            <Button color="secondary" size="small" onClick={updateStories}>
+              SHOW
+            </Button>
+            <IconButton
+              size="small"
+              aria-label="close"
+              color="inherit"
+              onClick={handleCloseSnackBar}
+            >
+              <CloseIcon fontSize="small"/>
+            </IconButton>
+          </React.Fragment>
+        }
+      />
     </div>
   );
 };
